@@ -1,18 +1,44 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { AuthState, LoginCredentials, RegisterCredentials, User } from '@/types/auth';
+import { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { toast } from 'sonner';
 import axios, { AxiosError } from 'axios';
 
 const baseUrl = "http://localhost/api/auth";
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  isVerified?: boolean;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  token: string | null;
+  refreshToken: string | null;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  name: string;
+}
+
 interface AuthContextProps {
   authState: AuthState;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
-  logout: () => void;
+  refresh: () => Promise<boolean>;
 }
 
-interface LoginApiSuccessResponse {
+interface ApiSuccessResponse {
   success: true;
   message: string;
   data: {
@@ -22,12 +48,7 @@ interface LoginApiSuccessResponse {
   };
 }
 
-interface LoginApiErrorResponse {
-  success: false;
-  message: string;
-}
-
-interface RegisterApiSuccessResponse {
+interface RegisterSuccessResponse {
   success: true;
   message: string;
   data: {
@@ -35,15 +56,24 @@ interface RegisterApiSuccessResponse {
   };
 }
 
-interface RegisterApiErrorResponse {
+interface ApiErrorResponse {
   success: false;
   message: string;
-  errors: {
-    type: string;
-    msg: string;
-    path: string;
-    location: string;
-  }[];
+  errors?: { type: string; msg: string; path: string; location: string }[];
+}
+
+interface RefreshSuccessResponse {
+  success: true;
+  message: string;
+  data: {
+    token: string;
+    refreshToken?: string;
+  };
+}
+
+interface RefreshErrorResponse {
+  success: false;
+  message: string;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -53,20 +83,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    token: null,
+    refreshToken: null,
   });
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const LoginSavedUser = localStorage.getItem('user');
-        const LoginSavedToken = localStorage.getItem('token');
-        if (LoginSavedUser && LoginSavedToken) {
-          const user = JSON.parse(LoginSavedUser) as User;
+        const savedUser = localStorage.getItem('user');
+        const savedToken = localStorage.getItem('token');
+        const savedRefreshToken = localStorage.getItem('refreshToken');
+        if (savedUser && savedToken && savedRefreshToken) {
+          const user = JSON.parse(savedUser) as User;
           setAuthState({
             user,
             isAuthenticated: true,
             isLoading: false,
+            token: savedToken,
+            refreshToken: savedRefreshToken,
           });
         } else {
           setAuthState((prev) => ({ ...prev, isLoading: false }));
@@ -82,8 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
-      // Make API call to the backend
-      const LoginResponse = await axios.post<LoginApiSuccessResponse>(
+      const response = await axios.post<ApiSuccessResponse>(
         `${baseUrl}/login`,
         credentials,
         {
@@ -93,30 +126,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
 
-      // Extract user and tokens from response
-      const { user, token, refreshToken } = LoginResponse.data.data;
+      const { user, token, refreshToken } = response.data.data;
 
-      // Update auth state
       setAuthState({
         user,
         isAuthenticated: true,
         isLoading: false,
+        token,
+        refreshToken,
       });
 
-      // Store user and tokens in localStorage
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', refreshToken);
 
-      // Show success toast
-      toast.success(LoginResponse.data.message); // e.g., "Login successful"
+      toast.success(response.data.message);
       return true;
     } catch (error) {
-      // Handle API errors
       if (axios.isAxiosError(error)) {
-        const LoginAxiosError = error as AxiosError<LoginApiErrorResponse>;
-        if (LoginAxiosError.response?.data) {
-          toast.error(LoginAxiosError.response.data.message); // e.g., "Invalid credentials"
+        const axiosError = error as AxiosError<ApiErrorResponse>;
+        if (axiosError.response?.data) {
+          const { message, errors } = axiosError.response.data;
+          if (errors && errors.length > 0) {
+            errors.forEach((err) => toast.error(err.msg));
+          } else {
+            toast.error(message);
+          }
         } else {
           toast.error('Login failed. Please try again.');
         }
@@ -130,8 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (credentials: RegisterCredentials): Promise<boolean> => {
     try {
-      // Make API call to the backend
-      const response = await axios.post<RegisterApiSuccessResponse>(
+      // Attempt registration
+      const registerResponse = await axios.post<RegisterSuccessResponse>(
         `${baseUrl}/register`,
         credentials,
         {
@@ -141,38 +176,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
 
-      // Extract user from response
-      const { user } = response.data.data;
+      // After successful registration, perform login to get tokens
+      const loginCredentials: LoginCredentials = {
+        email: credentials.email,
+        password: credentials.password,
+      };
 
-      // Update auth state
+      const loginResponse = await axios.post<ApiSuccessResponse>(
+        `${baseUrl}/login`,
+        loginCredentials,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const { user, token, refreshToken } = loginResponse.data.data;
+
       setAuthState({
         user,
         isAuthenticated: true,
         isLoading: false,
+        token,
+        refreshToken,
       });
 
-      // Store user in localStorage
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', refreshToken);
 
-      // Show success toast
-      toast.success(response.data.message); // e.g., "User registered successfully. Please check your email for verification."
+      toast.success(registerResponse.data.message);
       return true;
     } catch (error) {
-      // Handle API errors
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<RegisterApiErrorResponse>;
+        const axiosError = error as AxiosError<ApiErrorResponse>;
         if (axiosError.response?.data) {
           const { message, errors } = axiosError.response.data;
-          // Show specific validation errors
           if (errors && errors.length > 0) {
-            errors.forEach((err) => {
-              toast.error(err.msg); // e.g., "Valid email is required"
-            });
+            errors.forEach((err) => toast.error(err.msg));
           } else {
-            toast.error(message); // e.g., "Validation failed"
+            toast.error(message);
           }
         } else {
-          toast.error('Registration failed. Please try again.');
+          toast.error('Registration or login failed. Please try again.');
         }
       } else {
         console.error('Registration error:', error);
@@ -182,27 +229,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-    toast.success('Logged out successfully');
+  const refresh = async (): Promise<boolean> => {
+    try {
+      const savedRefreshToken = localStorage.getItem('refreshToken');
+      if (!savedRefreshToken) {
+        toast.error('No refresh token available. Please log in again.');
+        setAuthState((prev) => ({
+          ...prev,
+          isAuthenticated: false,
+          token: null,
+          refreshToken: null,
+        }));
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        return false;
+      }
+
+      const response = await axios.post<RefreshSuccessResponse>(
+        `${baseUrl}/refresh`,
+        { refreshToken: savedRefreshToken },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const { token, refreshToken: newRefreshToken } = response.data.data;
+
+      setAuthState((prev) => ({
+        ...prev,
+        token,
+        refreshToken: newRefreshToken || prev.refreshToken,
+      }));
+
+      localStorage.setItem('token', token);
+      if (newRefreshToken) {
+        localStorage.setItem('refreshToken', newRefreshToken);
+      }
+
+      toast.success(response.data.message);
+      return true;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError<RefreshErrorResponse>;
+        if (axiosError.response?.data) {
+          toast.error(axiosError.response.data.message);
+        } else {
+          toast.error('Failed to refresh token. Please log in again.');
+        }
+      } else {
+        console.error('Refresh token error:', error);
+        toast.error('An unexpected error occurred.');
+      }
+
+      setAuthState((prev) => ({
+        ...prev,
+        isAuthenticated: false,
+        token: null,
+        refreshToken: null,
+      }));
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      return false;
+    }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        authState,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ authState, login, register, refresh }}>
       {children}
     </AuthContext.Provider>
   );
