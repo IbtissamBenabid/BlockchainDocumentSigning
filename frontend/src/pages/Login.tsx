@@ -9,8 +9,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('demo@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -95,9 +95,7 @@ const Login: React.FC = () => {
           </form>
         </Card>
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>Demo credentials are pre-filled for you.</p>
-          <p className="mt-1">Email: demo@example.com</p>
-          <p>Password: password</p>
+          <p></p>
         </div>
       </div>
     </div>

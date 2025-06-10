@@ -102,7 +102,7 @@ const Profile: React.FC = () => {
             </Card>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div className="grid grid-cols-1 mt-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -144,45 +144,6 @@ const Profile: React.FC = () => {
                     </Button>
                   </div>
                 </form>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Shield className="h-5 w-5" /> Security
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-medium mb-2">Multi-Factor Authentication</h3>
-                    <p className="text-muted-foreground mb-4 text-sm">
-                      Add an extra layer of security to your account by enabling multi-factor authentication.
-                    </p>
-                    <Button variant="outline" onClick={handleEnableMFA}>
-                      Enable MFA
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Login History</h3>
-                    <p className="text-muted-foreground mb-2 text-sm">
-                      Recent logins to your account:
-                    </p>
-                    <div className="space-y-2">
-                      <div className="p-2 bg-gray-50 rounded text-xs">
-                        <div className="flex justify-between">
-                          <span>Today, 10:30 AM</span>
-                          <span className="text-green-600">Current session</span>
-                        </div>
-                        <div className="text-muted-foreground mt-1">
-                          IP: 192.168.1.1 • Chrome on Windows
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
