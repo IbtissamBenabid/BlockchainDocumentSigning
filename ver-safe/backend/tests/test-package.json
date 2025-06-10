@@ -1,0 +1,32 @@
+{
+  "name": "versafe-integration-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for VerSafe microservices",
+  "main": "test-all-services.js",
+  "scripts": {
+    "test": "node test-all-services.js",
+    "test:auth": "node -e \"require('./test-all-services').testAuthService()\"",
+    "test:document": "node -e \"require('./test-all-services').testDocumentService()\"",
+    "test:signature": "node -e \"require('./test-all-services').testSignatureService()\"",
+    "test:email": "node -e \"require('./test-all-services').testEmailService()\"",
+    "test:profile": "node -e \"require('./test-all-services').testProfileService()\"",
+    "test:blockchain": "node -e \"require('./test-all-services').testBlockchainService()\"",
+    "test:nginx": "node -e \"require('./test-all-services').testNginxGateway()\"",
+    "install-deps": "npm install axios form-data"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "versafe",
+    "microservices",
+    "integration-tests",
+    "api-testing",
+    "blockchain",
+    "document-management"
+  ],
+  "author": "VerSafe Team",
+  "license": "MIT"
+}

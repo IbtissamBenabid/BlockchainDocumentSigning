@@ -1,0 +1,42 @@
+{
+  "name": "versafe-blockchain-service",
+  "version": "1.0.0",
+  "description": "Hyperledger Fabric blockchain microservice for VerSafe",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "fabric-network": "^2.2.19",
+    "fabric-ca-client": "^2.2.19",
+    "pg": "^8.11.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.10.0",
+    "express-validator": "^7.0.1",
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1",
+    "morgan": "^1.10.0",
+    "compression": "^1.7.4",
+    "uuid": "^9.0.0",
+    "fs-extra": "^11.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2",
+    "supertest": "^6.3.3"
+  },
+  "keywords": [
+    "hyperledger-fabric",
+    "blockchain",
+    "document-management",
+    "microservice",
+    "versafe"
+  ],
+  "author": "VerSafe Team",
+  "license": "MIT"
+}

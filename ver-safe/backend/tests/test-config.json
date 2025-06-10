@@ -1,0 +1,56 @@
+{
+  "services": {
+    "auth": "http://localhost:3001",
+    "document": "http://localhost:3002",
+    "signature": "http://localhost:3003",
+    "email": "http://localhost:3004",
+    "profile": "http://localhost:3005",
+    "blockchain": "http://localhost:3006",
+    "nginx": "http://localhost:80"
+  },
+  "testUser": {
+    "email": "test@versafe.com",
+    "password": "TestPassword123!",
+    "name": "Test User"
+  },
+  "apiKey": "your-internal-api-key",
+  "timeout": 10000,
+  "testSettings": {
+    "skipHealthChecks": false,
+    "skipAuthTests": false,
+    "skipDocumentTests": false,
+    "skipSignatureTests": false,
+    "skipEmailTests": false,
+    "skipProfileTests": false,
+    "skipBlockchainTests": false,
+    "skipNginxTests": false,
+    "createTestFiles": true,
+    "cleanupAfterTests": true,
+    "verboseLogging": false
+  },
+  "documentTest": {
+    "title": "Test Document",
+    "securityLevel": "MEDIUM",
+    "testFileContent": "This is a test document for VerSafe integration testing."
+  },
+  "signatureTest": {
+    "signatureType": "ELECTRONIC",
+    "location": "Test Location",
+    "reason": "Testing signature functionality"
+  },
+  "emailTest": {
+    "subject": "VerSafe Test Email",
+    "template": "general"
+  },
+  "profileTest": {
+    "firstName": "Test",
+    "lastName": "User",
+    "phone": "+1234567890",
+    "organization": "VerSafe Testing Inc.",
+    "jobTitle": "QA Tester"
+  },
+  "blockchainTest": {
+    "algorithm": "SHA-256",
+    "network": "hyperledger-fabric"
+  }
+}

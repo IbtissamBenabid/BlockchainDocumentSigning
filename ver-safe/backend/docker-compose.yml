@@ -1,0 +1,263 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: versafe-postgres
+    environment:
+      POSTGRES_DB: versafe_db
+      POSTGRES_USER: versafe_user
+      POSTGRES_PASSWORD: versafe_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - versafe-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: versafe-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - versafe-network
+
+  # Authentication Service
+  auth-service:
+    build: ./auth-service
+    container_name: versafe-auth
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_EXPIRES_IN=24h
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - versafe-network
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
+
+  # Document Management Service
+  document-service:
+    build: ./document-service
+    container_name: versafe-documents
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - BLOCKCHAIN_SERVICE_URL=http://blockchain-service:3006
+      - UPLOAD_PATH=/app/uploads
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - versafe-network
+    volumes:
+      - ./document-service:/app
+      - /app/node_modules
+      - document_uploads:/app/uploads
+
+  # Signature Service
+  signature-service:
+    build: ./signature-service
+    container_name: versafe-signatures
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - DOCUMENT_SERVICE_URL=http://document-service:3002
+      - BLOCKCHAIN_SERVICE_URL=http://blockchain-service:3006
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - postgres
+      - auth-service
+      - document-service
+    networks:
+      - versafe-network
+    volumes:
+      - ./signature-service:/app
+      - /app/node_modules
+
+  # Email Service
+  email-service:
+    build: ./email-service
+    container_name: versafe-email
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - DOCUMENT_SERVICE_URL=http://document-service:3002
+      - GMAIL_CLIENT_ID=your-gmail-client-id
+      - GMAIL_CLIENT_SECRET=your-gmail-client-secret
+      - GMAIL_REFRESH_TOKEN=your-gmail-refresh-token
+      - INTERNAL_API_KEY=versafe-internal-api-key-2024
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - versafe-network
+    volumes:
+      - ./email-service:/app
+      - /app/node_modules
+
+  # User Profile Service
+  profile-service:
+    build: ./profile-service
+    container_name: versafe-profiles
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - UPLOAD_PATH=/app/uploads/profiles
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - versafe-network
+    volumes:
+      - ./profile-service:/app
+      - /app/node_modules
+      - profile_uploads:/app/uploads/profiles
+
+  # Blockchain Service (Hyperledger Fabric)
+  blockchain-service:
+    build: ./blockchain-service
+    container_name: versafe-blockchain
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - FABRIC_CHANNEL_NAME=documentchannel
+      - FABRIC_CHAINCODE_NAME=versafe-documents
+      - FABRIC_MSP_ID=Org1MSP
+      - FABRIC_USER_ID=appUser
+      - FABRIC_ADMIN_USER_ID=admin
+      - FABRIC_ADMIN_PASSWORD=adminpw
+      - FABRIC_CA_URL=http://ca.org1.example.com:7054
+      - FABRIC_CA_NAME=ca-org1
+      - FABRIC_WALLET_PATH=/app/fabric-wallet
+      - FABRIC_CONNECTION_PROFILE=/app/fabric-network/connection-profile.json
+      - INTERNAL_API_KEY=versafe-internal-api-key-2024
+    depends_on:
+      - postgres
+    networks:
+      - versafe-network
+    volumes:
+      - ./blockchain-service:/app
+      - /app/node_modules
+      - fabric_wallet:/app/fabric-wallet
+      - fabric_network:/app/fabric-network
+
+  # AI Service (PDF Malware Detection)
+  ai-service:
+    build: ./ai/PDF-Malware-Detector-master
+    container_name: versafe-ai
+    ports:
+      - "8500:8500"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=versafe_db
+      - DB_USER=versafe_user
+      - DB_PASSWORD=versafe_password
+      - INTERNAL_API_KEY=versafe-internal-api-key-2024
+      - PYTHONPATH=/app
+    depends_on:
+      - postgres
+    networks:
+      - versafe-network
+    volumes:
+      - ./ai/PDF-Malware-Detector-master:/app
+      - ai_models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # API Gateway (Optional - for routing and load balancing)
+  nginx:
+    image: nginx:alpine
+    container_name: versafe-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - auth-service
+      - document-service
+      - signature-service
+      - email-service
+      - profile-service
+      - blockchain-service
+      - ai-service
+    networks:
+      - versafe-network
+
+volumes:
+  postgres_data:
+  document_uploads:
+  profile_uploads:
+  fabric_wallet:
+  fabric_network:
+  ai_models:
+
+networks:
+  versafe-network:
+    driver: bridge
