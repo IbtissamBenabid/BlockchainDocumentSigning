@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, ReactNode, useContext } from 'react
 import { toast } from 'sonner';
 import axios, { AxiosError } from 'axios';
 
-const baseUrl = "http://localhost/api/auth";
+const baseUrl = "http://localhost:3001/api/auth";
 
 export interface User {
   id: string;
@@ -176,6 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
 
+      console.log('Registration response:', registerResponse.data);
+
       // After successful registration, perform login to get tokens
       const loginCredentials: LoginCredentials = {
         email: credentials.email,
@@ -191,6 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         }
       );
+
+      console.log('Login response after registration:', loginResponse.data);
 
       const { user, token, refreshToken } = loginResponse.data.data;
 
