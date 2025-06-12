@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+# Create symbolic link for libjpeg.so.8 to point to the available version
+RUN find /usr/lib -name "libjpeg.so*" -type f | head -1 | xargs -I {} ln -sf {} /usr/lib/x86_64-linux-gnu/libjpeg.so.8
+
 # Set working directory
 WORKDIR /app
 
@@ -27,15 +30,14 @@ RUN npm install --only=production --no-audit --no-fund
 # Copy source code
 COPY . .
 
-# Create directories for signatures and keys
-RUN mkdir -p signatures keys
-
 # Create non-root user
 RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nodejs
 
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
+# Create directories for signatures and keys with proper ownership
+RUN mkdir -p signatures keys && \
+    chown -R nodejs:nodejs /app
+
 USER nodejs
 
 # Expose port

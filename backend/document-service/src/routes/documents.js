@@ -5,6 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const { getDB } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { hashDocument } = require('../services/hashService');
@@ -14,6 +15,13 @@ const FormData = require('form-data');
 const { extractDocumentMetadata } = require('../services/documentProcessor');
 
 const router = express.Router();
+
+// Rate limiting for upload endpoints
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // limit each IP to 20 uploads per windowMs
+  message: 'Too many upload attempts, please try again later.',
+});
 
 // AI Service configuration
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://ai-service:8500';
@@ -103,7 +111,7 @@ const upload = multer({
 });
 
 // Upload document endpoint
-router.post('/upload', authenticateToken, upload.single('document'), [
+router.post('/upload', uploadLimiter, authenticateToken, upload.single('document'), [
   body('title').optional().trim().isLength({ min: 1, max: 255 }).withMessage('Title must be between 1 and 255 characters'),
   body('securityLevel').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Invalid security level'),
 ], async (req, res) => {
@@ -210,21 +218,8 @@ router.post('/upload', authenticateToken, upload.single('document'), [
       }
     }
 
-    // Insert initial verification record
-    await db.query(
-      `INSERT INTO verification_history (
-        document_id, verifier_id, verifier_name, is_verified, 
-        verification_method, details
-      ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        documentId,
-        req.user.userId,
-        req.user.name,
-        true,
-        'HASH_COMPARISON',
-        'Initial upload verification'
-      ]
-    );
+    // Note: Verification will be done manually after signing
+    // No automatic verification during upload
 
     // Prepare response with AI analysis if available
     const responseData = {

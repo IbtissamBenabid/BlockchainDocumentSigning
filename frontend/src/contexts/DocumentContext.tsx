@@ -3,9 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import {
   Document,
   DocumentStatus,
-  SecurityLevel,
-  SignatureType,
-  VerificationMethod
+  SecurityLevel
 } from '@/types/document';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -215,11 +213,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     signatureDataUrl: string,
     signatureMetadata = {}
   ): Promise<boolean> => {
-    // TODO: Implement real signature API call when signature service is integrated
+    if (!authState.token) {
+      toast.error('Please log in to sign documents');
+      return false;
+    }
+
     try {
       setIsLoading(true);
 
-      // Get document
+      // Get document from local state first for validation
       const document = documents.find(doc => doc.id === documentId);
       if (!document) {
         toast.error("Document not found");
@@ -237,75 +239,66 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return false;
       }
 
-      // Simulate signing process
       toast.info("Preparing signature for blockchain registration...");
-      await new Promise(resolve => setTimeout(resolve, 700));
 
-      toast.info("Computing cryptographic proof...");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      // Create axios instance for signature service
+      const SIGNATURE_API_URL = `${API_BASE_URL}/api/signatures`;
+      const api = createAuthenticatedAxios(authState.token);
+      api.defaults.baseURL = SIGNATURE_API_URL;
 
-      toast.info("Sending transaction to blockchain...");
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Simulate verification result
-      const verified = Math.random() > 0.05; // 95% success rate
-
-      // Determine new document status based on required signatures
-      let newStatus = DocumentStatus.SIGNED;
-
-      // If document requires multiple signatures
-      if (document.metadata?.signaturesRequired && document.metadata.signaturesRequired > 1) {
-        const currentSignatures = (document.signatures || []).length;
-        if (currentSignatures + 1 < document.metadata.signaturesRequired) {
-          newStatus = DocumentStatus.PARTIALLY_SIGNED;
-          toast.info(`Document requires ${document.metadata.signaturesRequired - currentSignatures - 1} more signature(s)`);
+      // Prepare signature data
+      const signatureData = {
+        signatureType: 'ELECTRONIC',
+        signatureData: signatureDataUrl,
+        metadata: {
+          ...signatureMetadata,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          ipAddress: '127.0.0.1' // In production, this would be handled by the backend
         }
+      };
+
+      toast.info("Sending signature to blockchain...");
+
+      // Call signature service API
+      const response = await api.post(`/${documentId}/sign`, signatureData);
+
+      if (response.data.success) {
+        toast.success('Document signed successfully and recorded on blockchain');
+
+        // Refresh documents to get updated state from backend
+        await refreshDocuments();
+
+        return true;
+      } else {
+        toast.error(response.data.message || 'Failed to sign document');
+        return false;
       }
-
-      setDocuments(prev => prev.map(doc => {
-        if (doc.id === documentId) {
-          const updatedSignatures = [
-            ...(doc.signatures || []),
-            {
-              id: Date.now().toString(),
-              userId: authState.user?.id || '1',
-              userName: authState.user?.name || 'User',
-              timestamp: new Date().toISOString(),
-              signatureDataUrl,
-              signatureType: SignatureType.ELECTRONIC,
-              verified,
-              ...signatureMetadata
-            },
-          ];
-
-          const updatedVerificationHistory = [
-            ...(doc.verificationHistory || []),
-            {
-              id: Date.now().toString(),
-              timestamp: new Date().toISOString(),
-              verifierId: authState.user?.id || '1',
-              verifierName: authState.user?.name || 'User',
-              verified,
-              verificationMethod: VerificationMethod.BLOCKCHAIN_VERIFICATION,
-              details: `Signature verification: ${verified ? 'Success' : 'Failed'}`
-            }
-          ];
-
-          return {
-            ...doc,
-            signatures: updatedSignatures,
-            verificationHistory: updatedVerificationHistory,
-            status: newStatus,
-          };
-        }
-        return doc;
-      }));
-
-      toast.success('Document signed successfully and recorded on blockchain');
-      return true;
     } catch (error) {
       console.error('Error signing document:', error);
-      toast.error('Failed to sign document');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Document not found or access denied');
+        } else if (error.response?.status === 409) {
+          // Document already signed
+          const errorData = error.response.data;
+          if (errorData?.data?.suggestion) {
+            toast.warning(`${errorData.message}. ${errorData.data.suggestion}`);
+          } else {
+            toast.warning(errorData?.message || 'Document already signed by this user');
+          }
+          // Refresh documents to show current status
+          await refreshDocuments();
+        } else if (error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to sign document');
+        }
+      } else {
+        toast.error('Failed to sign document');
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -313,11 +306,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const shareDocument = async (documentId: string, email: string): Promise<boolean> => {
-    // TODO: Implement real sharing API call when sharing service is integrated
+    if (!authState.token) {
+      toast.error('Please log in to share documents');
+      return false;
+    }
+
     try {
       setIsLoading(true);
 
-      // Get document
+      // Get document from local state first for validation
       const document = documents.find(doc => doc.id === documentId);
       if (!document) {
         toast.error("Document not found");
@@ -330,54 +327,49 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return false;
       }
 
-      // Simulate sharing process
       toast.info("Preparing secure sharing link...");
-      await new Promise(resolve => setTimeout(resolve, 500));
 
-      toast.info("Encrypting document access...");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      // Create axios instance for document service
+      const api = createAuthenticatedAxios(authState.token);
 
-      // Check if email is already in sharedWith list
-      if (document.sharedWith?.includes(email)) {
-        toast.info(`Document already shared with ${email}`);
+      // Prepare sharing data
+      const shareData = {
+        email,
+        accessLevel: 'read',
+        message: `${authState.user?.name || 'A user'} has shared a document with you`
+      };
+
+      toast.info("Sending sharing invitation...");
+
+      // Call document service API for sharing
+      const response = await api.post(`/${documentId}/share`, shareData);
+
+      if (response.data.success) {
+        toast.success(`Document shared with ${email}`);
+
+        // Refresh documents to get updated state from backend
+        await refreshDocuments();
+
         return true;
+      } else {
+        toast.error(response.data.message || 'Failed to share document');
+        return false;
       }
-
-      setDocuments(prev => prev.map(doc => {
-        if (doc.id === documentId) {
-          const updatedSharedWith = [
-            ...(doc.sharedWith || []),
-            email,
-          ];
-
-          const updatedVerificationHistory = [
-            ...(doc.verificationHistory || []),
-            {
-              id: Date.now().toString(),
-              timestamp: new Date().toISOString(),
-              verifierId: authState.user?.id || '1',
-              verifierName: authState.user?.name || 'User',
-              verified: true,
-              verificationMethod: VerificationMethod.HASH_COMPARISON,
-              details: `Document shared with ${email}`
-            }
-          ];
-
-          return {
-            ...doc,
-            sharedWith: updatedSharedWith,
-            verificationHistory: updatedVerificationHistory,
-            status: DocumentStatus.SHARED,
-          };
-        }
-        return doc;
-      }));
-
-      toast.success(`Document shared with ${email}`);
-      return true;
     } catch (error) {
       console.error('Error sharing document:', error);
-      toast.error('Failed to share document');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Document not found or access denied');
+        } else if (error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to share document');
+        }
+      } else {
+        toast.error('Failed to share document');
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -385,66 +377,59 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const verifyDocument = async (documentId: string): Promise<boolean> => {
-    // TODO: Implement real verification API call when verification service is integrated
+    if (!authState.token) {
+      toast.error('Please log in to verify documents');
+      return false;
+    }
+
     try {
       setIsLoading(true);
 
-      // Get document
+      // Get document from local state first for validation
       const document = documents.find(doc => doc.id === documentId);
       if (!document) {
         toast.error("Document not found");
         return false;
       }
 
-      // Simulate verification process
       toast.info("Connecting to blockchain network...");
-      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Create axios instance for verification service
+      const VERIFICATION_API_URL = `${API_BASE_URL}/api/verification`;
+      const api = createAuthenticatedAxios(authState.token);
+      api.defaults.baseURL = VERIFICATION_API_URL;
 
       toast.info("Retrieving transaction details...");
-      await new Promise(resolve => setTimeout(resolve, 700));
 
-      toast.info("Verifying cryptographic proofs...");
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Call verification service API for blockchain verification
+      const response = await api.post(`/${documentId}/verify`);
 
-      // Simulate verification result
-      const verified = Math.random() > 0.05; // 95% success rate
-      const blockNumber = Math.floor(Math.random() * 1000000) + 15000000;
-      const confirmations = Math.floor(Math.random() * 50) + 1;
+      if (response.data.success) {
+        toast.success('Document verified on blockchain');
 
-      if (!verified) {
-        toast.error("Document verification failed! Hash mismatch detected.");
+        // Refresh documents to get updated state from backend
+        await refreshDocuments();
+
+        return true;
+      } else {
+        toast.error(response.data.message || 'Document verification failed');
         return false;
       }
-
-      setDocuments(prev => prev.map(doc => {
-        if (doc.id === documentId) {
-          const updatedVerificationHistory = [
-            ...(doc.verificationHistory || []),
-            {
-              id: Date.now().toString(),
-              timestamp: new Date().toISOString(),
-              verifierId: authState.user?.id || '1',
-              verifierName: authState.user?.name || 'User',
-              verified,
-              verificationMethod: VerificationMethod.BLOCKCHAIN_VERIFICATION,
-              details: `Blockchain verification: Block ${blockNumber}, ${confirmations} confirmations`
-            }
-          ];
-
-          return {
-            ...doc,
-            verificationHistory: updatedVerificationHistory,
-            status: DocumentStatus.VERIFIED,
-          };
-        }
-        return doc;
-      }));
-
-      toast.success('Document verified on blockchain');
-      return true;
     } catch (error) {
       console.error('Error verifying document:', error);
-      toast.error('Failed to verify document');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Document not found or verification data unavailable');
+        } else if (error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to verify document');
+        }
+      } else {
+        toast.error('Failed to verify document');
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -452,55 +437,63 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const revokeDocument = async (documentId: string, reason: string): Promise<boolean> => {
-    // TODO: Implement real revocation API call when revocation service is integrated
+    if (!authState.token) {
+      toast.error('Please log in to revoke documents');
+      return false;
+    }
+
     try {
       setIsLoading(true);
 
-      // Get document
+      // Get document from local state first for validation
       const document = documents.find(doc => doc.id === documentId);
       if (!document) {
         toast.error("Document not found");
         return false;
       }
 
-      // Simulate revocation process
       toast.info("Preparing revocation transaction...");
-      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Create axios instance for document service
+      const api = createAuthenticatedAxios(authState.token);
+
+      // Prepare revocation data
+      const revocationData = {
+        reason,
+        timestamp: new Date().toISOString()
+      };
 
       toast.info("Sending revocation to blockchain...");
-      await new Promise(resolve => setTimeout(resolve, 800));
 
-      setDocuments(prev => prev.map(doc => {
-        if (doc.id === documentId) {
-          const updatedVerificationHistory = [
-            ...(doc.verificationHistory || []),
-            {
-              id: Date.now().toString(),
-              timestamp: new Date().toISOString(),
-              verifierId: authState.user?.id || '1',
-              verifierName: authState.user?.name || 'User',
-              verified: true,
-              verificationMethod: VerificationMethod.BLOCKCHAIN_VERIFICATION,
-              details: `Document revoked: ${reason}`
-            }
-          ];
+      // Call document service API for revocation
+      const response = await api.post(`/${documentId}/revoke`, revocationData);
 
-          return {
-            ...doc,
-            revoked: true,
-            revokedReason: reason,
-            status: DocumentStatus.REVOKED,
-            verificationHistory: updatedVerificationHistory,
-          };
-        }
-        return doc;
-      }));
+      if (response.data.success) {
+        toast.success('Document has been revoked');
 
-      toast.success('Document has been revoked');
-      return true;
+        // Refresh documents to get updated state from backend
+        await refreshDocuments();
+
+        return true;
+      } else {
+        toast.error(response.data.message || 'Failed to revoke document');
+        return false;
+      }
     } catch (error) {
       console.error('Error revoking document:', error);
-      toast.error('Failed to revoke document');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          toast.error('Session expired. Please log in again.');
+        } else if (error.response?.status === 404) {
+          toast.error('Document not found or access denied');
+        } else if (error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to revoke document');
+        }
+      } else {
+        toast.error('Failed to revoke document');
+      }
       return false;
     } finally {
       setIsLoading(false);

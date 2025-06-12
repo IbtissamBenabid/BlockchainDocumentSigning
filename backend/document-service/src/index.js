@@ -22,9 +22,18 @@ app.use(compression());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000'],
+  origin: function (origin, callback) {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
 }));
 
@@ -69,7 +78,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/documents', uploadLimiter, documentRoutes);
+app.use('/api/documents', documentRoutes);
 app.use('/api/verification', verificationRoutes);
 
 // 404 handler

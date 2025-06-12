@@ -19,15 +19,14 @@ RUN npm install --only=production
 # Copy source code
 COPY . .
 
-# Create directories for email templates and attachments
-RUN mkdir -p templates attachments
-
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
 
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
+# Create directories for email templates and attachments with proper ownership
+RUN mkdir -p templates attachments && \
+    chown -R nodejs:nodejs /app
+
 USER nodejs
 
 # Expose port
