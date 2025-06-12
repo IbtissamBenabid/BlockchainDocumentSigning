@@ -4,7 +4,7 @@ FROM node:18-bullseye-slim
 # Install system dependencies for canvas and native modules
 RUN apt-get update && apt-get install -y \
     libcairo2-dev \
-    libjpeg-dev \
+    libjpeg62-turbo-dev \
     libpango1.0-dev \
     libgif-dev \
     librsvg2-dev \

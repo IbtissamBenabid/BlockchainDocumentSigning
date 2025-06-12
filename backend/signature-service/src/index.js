@@ -103,13 +103,13 @@ async function startServer() {
 
     // Ensure signature and key directories exist
     const fs = require('fs');
-    const signatureDir = path.join(__dirname, '../signatures');
+    const signatureDir = process.env.SIGNATURE_PATH || path.join(__dirname, '../signatures');
     const keyDir = path.join(__dirname, '../keys');
-    
+
     if (!fs.existsSync(signatureDir)) {
       fs.mkdirSync(signatureDir, { recursive: true });
     }
-    
+
     if (!fs.existsSync(keyDir)) {
       fs.mkdirSync(keyDir, { recursive: true });
     }

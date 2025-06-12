@@ -20,7 +20,7 @@ const router = express.Router();
 // Configure multer for signature uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const signaturePath = path.join(__dirname, '../../signatures');
+    const signaturePath = process.env.SIGNATURE_PATH || path.join(__dirname, '../../signatures');
     if (!fs.existsSync(signaturePath)) {
       fs.mkdirSync(signaturePath, { recursive: true });
     }

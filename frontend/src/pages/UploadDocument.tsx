@@ -15,7 +15,7 @@ const UploadDocument: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadDocument } = useDocuments();
+  const { uploadDocument, refreshDocuments } = useDocuments();
   const navigate = useNavigate();
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,11 +53,13 @@ const UploadDocument: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    
+
     setIsProcessing(true);
     try {
       const result = await uploadDocument(file, title);
       if (result) {
+        // Refresh the documents list to ensure it's up to date
+        await refreshDocuments();
         navigate(`/verify/${result.id}`);
       }
     } catch (error) {
