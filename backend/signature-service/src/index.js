@@ -22,9 +22,9 @@ app.use(compression());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
 }));
 
@@ -103,15 +103,20 @@ async function startServer() {
 
     // Ensure signature and key directories exist
     const fs = require('fs');
-    const signatureDir = path.join(__dirname, '../signatures');
-    const keyDir = path.join(__dirname, '../keys');
-    
-    if (!fs.existsSync(signatureDir)) {
-      fs.mkdirSync(signatureDir, { recursive: true });
-    }
-    
-    if (!fs.existsSync(keyDir)) {
-      fs.mkdirSync(keyDir, { recursive: true });
+    const signatureDir = process.env.SIGNATURE_PATH || path.join(process.cwd(), 'signatures');
+    const keyDir = path.join(process.cwd(), 'keys');
+
+    try {
+      if (!fs.existsSync(signatureDir)) {
+        fs.mkdirSync(signatureDir, { recursive: true });
+      }
+
+      if (!fs.existsSync(keyDir)) {
+        fs.mkdirSync(keyDir, { recursive: true });
+      }
+    } catch (error) {
+      console.warn('Directory creation warning:', error.message);
+      // Continue if directories already exist or can't be created
     }
 
     // Start HTTP server

@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 const SignDocument: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getDocumentById, signDocument, isLoading } = useDocuments();
+  const { getDocumentById, signDocument, refreshDocuments, isLoading } = useDocuments();
   const [document, setDocument] = useState<DocType | undefined>();
   const [signatureMethod, setSignatureMethod] = useState<'draw' | 'type'>('draw');
   const [typeSignature, setTypeSignature] = useState('');
@@ -88,15 +88,22 @@ const SignDocument: React.FC = () => {
       };
       
       const success = await signDocument(id, signatureDataUrl, signatureData);
-      
+
       if (success) {
-        // Refresh document data
-        const updatedDoc = getDocumentById(id);
-        setDocument(updatedDoc);
-        
-        // Navigate to verification with success message
+        // Show success message
         toast.success("Document signed successfully and registered on blockchain!");
-        navigate(`/verify/${id}`);
+
+        // The signDocument function already calls refreshDocuments()
+        // Wait a moment for the refresh to complete, then update local state
+        setTimeout(() => {
+          const updatedDoc = getDocumentById(id);
+          if (updatedDoc) {
+            setDocument(updatedDoc);
+          }
+        }, 500); // Reduced timeout since refreshDocuments is already called
+
+        // Reset signature form
+        setTypeSignature('');
       }
     } catch (error) {
       console.error('Error signing document:', error);
@@ -108,9 +115,9 @@ const SignDocument: React.FC = () => {
 
   const handleTypeSignatureSubmit = () => {
     if (!typeSignature.trim()) return;
-    
+
     // Convert text to image (simple canvas solution)
-    const canvas = document.createElement('canvas');
+    const canvas = window.document.createElement('canvas');
     canvas.width = 400;
     canvas.height = 100;
     const ctx = canvas.getContext('2d');
@@ -302,7 +309,53 @@ const SignDocument: React.FC = () => {
             </div>
             
             <h3 className="text-lg font-semibold mb-4">Add Your Signature</h3>
-            
+
+            {/* Show status message if document is already signed */}
+            {document.status === DocumentStatus.SIGNED && (
+              <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Document Already Signed</AlertTitle>
+                <AlertDescription>
+                  This document has been signed and recorded on the blockchain. You can verify it or proceed to the next step.
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/verify/${id}`)}
+                    >
+                      Verify Document
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/dashboard')}
+                    >
+                      Back to Dashboard
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {document.status === DocumentStatus.VERIFIED && (
+              <Alert className="mb-6 bg-blue-50 text-blue-800 border-blue-200">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Document Verified</AlertTitle>
+                <AlertDescription>
+                  This document has been signed and verified on the blockchain. The signing process is complete.
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/dashboard')}
+                    >
+                      Back to Dashboard
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Tabs defaultValue="draw" onValueChange={(value) => setSignatureMethod(value as 'draw' | 'type')}>
               <TabsList className="mb-6">
                 <TabsTrigger value="draw">Draw Signature</TabsTrigger>

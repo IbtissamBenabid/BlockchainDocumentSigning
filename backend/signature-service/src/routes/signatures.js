@@ -20,7 +20,7 @@ const router = express.Router();
 // Configure multer for signature uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const signaturePath = path.join(__dirname, '../../signatures');
+    const signaturePath = process.env.SIGNATURE_PATH || path.join(__dirname, '../../signatures');
     if (!fs.existsSync(signaturePath)) {
       fs.mkdirSync(signaturePath, { recursive: true });
     }
@@ -94,14 +94,21 @@ router.post('/:documentId/sign', authenticateToken, [
 
     // Check if user already signed this document
     const existingSignature = await db.query(
-      'SELECT id FROM signatures WHERE document_id = $1 AND user_id = $2',
+      'SELECT id, created_at, blockchain_tx_id FROM signatures WHERE document_id = $1 AND user_id = $2',
       [documentId, req.user.userId]
     );
 
     if (existingSignature.rows.length > 0) {
+      const signature = existingSignature.rows[0];
       return res.status(409).json({
         success: false,
-        message: 'Document already signed by this user'
+        message: 'Document already signed by this user',
+        data: {
+          signatureId: signature.id,
+          signedAt: signature.created_at,
+          blockchainTxId: signature.blockchain_tx_id,
+          suggestion: 'You can verify the document or view your signature details instead.'
+        }
       });
     }
 
@@ -217,25 +224,11 @@ router.post('/:documentId/sign', authenticateToken, [
       console.warn('Blockchain update failed:', blockchainError.message);
     }
 
-    // Check if document has all required signatures
-    const signatureCount = await db.query(
-      'SELECT COUNT(*) as count FROM signatures WHERE document_id = $1',
-      [documentId]
+    // Update document status to SIGNED when a signature is added
+    await db.query(
+      'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['SIGNED', documentId]
     );
-
-    const totalSignatures = parseInt(signatureCount.rows[0].count);
-    const requiredSignatures = document.signatures_required || 1;
-
-    let documentStatus = 'SIGNED';
-    if (totalSignatures >= requiredSignatures) {
-      documentStatus = 'COMPLETED';
-      
-      // Update document status
-      await db.query(
-        'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [documentStatus, documentId]
-      );
-    }
 
     res.status(201).json({
       success: true,
@@ -252,9 +245,7 @@ router.post('/:documentId/sign', authenticateToken, [
         },
         document: {
           id: documentId,
-          status: documentStatus,
-          totalSignatures,
-          requiredSignatures
+          status: 'SIGNED'
         }
       }
     });

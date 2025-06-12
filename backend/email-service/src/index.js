@@ -57,7 +57,7 @@ app.use(morgan('combined'));
 app.use(auditLogger);
 
 // Serve email templates (for preview)
-app.use('/templates', express.static(path.join(__dirname, '../templates')));
+app.use('/templates', express.static(path.join(process.cwd(), 'templates')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -112,15 +112,20 @@ async function startServer() {
 
     // Ensure template and attachment directories exist
     const fs = require('fs');
-    const templateDir = path.join(__dirname, '../templates');
-    const attachmentDir = path.join(__dirname, '../attachments');
-    
-    if (!fs.existsSync(templateDir)) {
-      fs.mkdirSync(templateDir, { recursive: true });
-    }
-    
-    if (!fs.existsSync(attachmentDir)) {
-      fs.mkdirSync(attachmentDir, { recursive: true });
+    const templateDir = path.join(process.cwd(), 'templates');
+    const attachmentDir = path.join(process.cwd(), 'attachments');
+
+    try {
+      if (!fs.existsSync(templateDir)) {
+        fs.mkdirSync(templateDir, { recursive: true });
+      }
+
+      if (!fs.existsSync(attachmentDir)) {
+        fs.mkdirSync(attachmentDir, { recursive: true });
+      }
+    } catch (error) {
+      console.warn('Directory creation warning:', error.message);
+      // Continue if directories already exist or can't be created
     }
 
     // Start HTTP server

@@ -159,6 +159,26 @@ router.post('/:documentId/verify', optionalAuth, async (req, res) => {
       });
     }
 
+    // Check if document has been signed before allowing verification
+    if (document.status !== 'SIGNED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Document must be signed before it can be verified',
+        data: {
+          document: {
+            id: document.id,
+            title: document.title,
+            fileName: document.file_name,
+            status: document.status,
+            currentStatus: document.status
+          },
+          suggestion: document.status === 'UPLOADED' ?
+            'Please sign the document first before attempting verification.' :
+            'Document is not in a state that allows verification.'
+        }
+      });
+    }
+
     // Verify file integrity if file exists
     let fileVerification = { verified: true, message: 'File verification skipped' };
     if (document.file_path && require('fs').existsSync(document.file_path)) {
@@ -187,6 +207,14 @@ router.post('/:documentId/verify', optionalAuth, async (req, res) => {
         `File: ${fileVerification.verified ? 'OK' : 'FAIL'}, Blockchain: ${blockchainVerification.verified ? 'OK' : 'FAIL'}`
       ]
     );
+
+    // Update document status to VERIFIED if verification was successful
+    if (overallVerified) {
+      await db.query(
+        'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        ['VERIFIED', document.id]
+      );
+    }
 
     res.json({
       success: true,

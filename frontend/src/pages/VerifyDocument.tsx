@@ -170,7 +170,24 @@ const VerifyDocument: React.FC = () => {
               </CardHeader>
               
               <CardContent>
-                {verificationResult === 'success' ? (
+                {document.status !== DocumentStatus.SIGNED && document.status !== DocumentStatus.VERIFIED ? (
+                  <Alert className="border-yellow-500 bg-yellow-50">
+                    <Clock className="h-5 w-5 text-yellow-600" />
+                    <AlertTitle className="text-yellow-700">Document Not Signed</AlertTitle>
+                    <AlertDescription className="text-yellow-700">
+                      This document must be signed before it can be verified. Please sign the document first.
+                      <div className="mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/sign/${document.id}`)}
+                        >
+                          Sign Document
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ) : verificationResult === 'success' ? (
                   <Alert className="border-green-500 bg-green-50">
                     <Check className="h-5 w-5 text-green-600" />
                     <AlertTitle className="text-green-700">Document Verified</AlertTitle>
@@ -189,9 +206,9 @@ const VerifyDocument: React.FC = () => {
                 ) : (
                   <Alert>
                     <Clock className="h-5 w-5" />
-                    <AlertTitle>Not Verified Yet</AlertTitle>
+                    <AlertTitle>Ready for Verification</AlertTitle>
                     <AlertDescription>
-                      This document has not been verified on the blockchain yet. Click the verify button to check its integrity.
+                      This document has been signed and is ready for blockchain verification. Click the verify button to check its integrity.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -304,9 +321,9 @@ const VerifyDocument: React.FC = () => {
                 </div>
                 
                 <div className="flex flex-col md:flex-row gap-4 mt-8">
-                  {verificationResult !== 'success' && (
-                    <Button 
-                      onClick={handleVerify} 
+                  {verificationResult !== 'success' && document.status === DocumentStatus.SIGNED && (
+                    <Button
+                      onClick={handleVerify}
                       disabled={isVerifying}
                       className="flex-1"
                     >
