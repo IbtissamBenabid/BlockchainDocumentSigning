@@ -1,13 +1,48 @@
-# VerSafe - Secure Document Management Platform
+# 🔐 VerSafe - Blockchain Document Signing Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
 [![Microservices](https://img.shields.io/badge/Architecture-Microservices-green.svg)](https://microservices.io/)
 [![Blockchain](https://img.shields.io/badge/Blockchain-Hyperledger%20Fabric-orange.svg)](https://hyperledger.org/use/fabric)
+[![AI](https://img.shields.io/badge/AI-Powered%20Security-red.svg)](https://scikit-learn.org/)
+[![React](https://img.shields.io/badge/Frontend-React%20TypeScript-blue.svg)](https://reactjs.org/)
+
+## 📁 Repository Structure
+
+```
+BlockchainDocumentSigning/
+├── 📂 backend/              # 7 Microservices Backend
+│   ├── auth-service/        # User authentication & JWT management
+│   ├── document-service/    # Document upload, storage & AI integration
+│   ├── signature-service/   # Digital signatures & verification
+│   ├── email-service/       # Email notifications & sharing
+│   ├── profile-service/     # User profile management
+│   ├── blockchain-service/  # Hyperledger Fabric integration
+│   ├── ai/                  # AI-powered PDF malware detection
+│   ├── nginx/               # API Gateway configuration
+│   ├── database/            # PostgreSQL schema & initialization
+│   ├── tests/               # Comprehensive testing suite
+│   └── docker-compose.yml   # Container orchestration
+├── 📂 frontend/             # React TypeScript Application
+│   ├── src/                 # Source code
+│   │   ├── components/      # Reusable UI components (50+)
+│   │   ├── pages/           # Application pages
+│   │   ├── contexts/        # React context providers
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── types/           # TypeScript type definitions
+│   ├── public/              # Static assets
+│   └── package.json         # Frontend dependencies
+├── 📂 docs/                 # Comprehensive Documentation
+│   ├── API_DOCUMENTATION.md           # Complete API reference
+│   ├── FRONTEND_BACKEND_INTEGRATION.md # Developer integration guide
+│   ├── DEPLOYMENT_GUIDE.md            # Production deployment
+│   └── PROJECT_SUMMARY.md             # Architecture overview
+└── 📄 README.md             # This file
+```
 
 ## 🌟 Overview
 
-VerSafe is a cutting-edge, enterprise-grade document management platform built with microservices architecture. It provides secure document storage, digital signatures, blockchain verification, and comprehensive audit trails for organizations requiring the highest levels of document security and compliance.
+VerSafe is a cutting-edge, enterprise-grade blockchain document signing platform built with modern microservices architecture. It provides secure document storage, AI-powered security analysis, digital signatures, blockchain verification, and comprehensive audit trails for organizations requiring the highest levels of document security and compliance.
 
 ### 🎯 Key Features
 
