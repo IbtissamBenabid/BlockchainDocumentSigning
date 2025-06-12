@@ -1,19 +1,19 @@
-FROM node:18-alpine
+# Use Debian-based image for better native dependency support
+FROM node:18-bullseye-slim
 
 # Install system dependencies for canvas and native modules
-RUN apk add --no-cache \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    musl-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
+RUN apt-get update && apt-get install -y \
+    libcairo2-dev \
+    libjpeg-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    librsvg2-dev \
+    libpixman-1-dev \
     python3 \
     make \
-    g++
+    g++ \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -21,8 +21,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --only=production
+# Install dependencies with better caching
+RUN npm install --only=production --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -31,8 +31,8 @@ COPY . .
 RUN mkdir -p signatures keys
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nodejs
 
 # Change ownership of the app directory
 RUN chown -R nodejs:nodejs /app

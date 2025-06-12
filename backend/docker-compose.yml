@@ -81,7 +81,9 @@ services:
 
   # Signature Service
   signature-service:
-    build: ./signature-service
+    build:
+      context: ./signature-service
+      dockerfile: Dockerfile
     container_name: versafe-signatures
     ports:
       - "3003:3003"
@@ -201,7 +203,9 @@ services:
 
   # AI Service (PDF Malware Detection)
   ai-service:
-    build: ./ai/PDF-Malware-Detector-master
+    build:
+      context: ./ai/PDF-Malware-Detector-master
+      dockerfile: Dockerfile
     container_name: versafe-ai
     ports:
       - "8500:8500"

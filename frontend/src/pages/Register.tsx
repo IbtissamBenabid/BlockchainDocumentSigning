@@ -13,15 +13,56 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{name?: string; email?: string; password?: string}>({});
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
+    // Trim and validate inputs
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    // Clear previous errors
+    setErrors({});
+
+    // Client-side validation
+    const newErrors: {name?: string; email?: string; password?: string} = {};
+
+    if (trimmedName.length < 2) {
+      newErrors.name = 'Name must be at least 2 characters';
+    }
+
+    if (!trimmedEmail || !/\S+@\S+\.\S+/.test(trimmedEmail)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const success = await register({ name, email, password });
+      // Debug logging
+      console.log('Sending registration data:', {
+        name: trimmedName,
+        nameLength: trimmedName.length,
+        email: trimmedEmail,
+        password: '***hidden***'
+      });
+
+      const success = await register({
+        name: trimmedName,
+        email: trimmedEmail,
+        password
+      });
       if (success) {
         navigate('/dashboard');
       }
@@ -60,7 +101,9 @@ const Register: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  className={errors.name ? 'border-red-500' : ''}
                 />
+                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -71,7 +114,9 @@ const Register: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className={errors.email ? 'border-red-500' : ''}
                 />
+                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -82,7 +127,9 @@ const Register: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className={errors.password ? 'border-red-500' : ''}
                 />
+                {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
               </div>
             </CardContent>
             <CardFooter className="flex-col space-y-4">

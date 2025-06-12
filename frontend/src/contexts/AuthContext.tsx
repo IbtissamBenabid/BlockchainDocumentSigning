@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, ReactNode, useContext } from 'react
 import { toast } from 'sonner';
 import axios, { AxiosError } from 'axios';
 
-const baseUrl = "http://localhost:3001/api/auth";
+const baseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost/api/auth";
 
 export interface User {
   id: string;

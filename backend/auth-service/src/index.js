@@ -20,26 +20,18 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 app.use(compression());
 
-// CORS configuration - more permissive for development
-app.use(cors({
-  origin: '*', // Allow all origins in development
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Completely disable rate limiting for development
-// Comment out these lines
-// app.use(limiter);
-// const authLimiter = rateLimit({...});
-// app.use('/api/auth', authLimiter, authRoutes);
-
-// Use this instead
-app.use('/api/auth', authRoutes);
-
-// Body parsing middleware
+// Body parsing middleware - MUST come before routes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// CORS configuration - Let nginx handle CORS headers
+// Commenting out to avoid duplicate headers
+// app.use(cors({
+//   origin: '*', // Allow all origins in development
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 
 // Logging middleware
 app.use(morgan('combined'));
