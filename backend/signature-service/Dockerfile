@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     make \
     g++ \
     pkg-config \
+    musl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symbolic link for libjpeg.so.8 to point to the available version
