@@ -14,7 +14,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  CircleDot
+  CircleDot,
+  Clock,
+  BookOpen,
+  FileType,
+  Calendar,
+  TrendingUp,
+  Hash
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,7 +36,18 @@ const AIAnalysis: React.FC = () => {
     contentSummary: '',
     keyTerms: [],
     anomalies: [],
-    recommendations: []
+    recommendations: [],
+    metadata: {
+      pageCount: 0,
+      wordCount: 0,
+      characterCount: 0,
+      documentType: '',
+      analysisDate: '',
+      processingTime: '',
+      fileSize: '',
+      creationDate: '',
+      lastModified: ''
+    }
   });
 
   const handleSelectDocument = (documentId: string) => {
@@ -41,52 +58,75 @@ const AIAnalysis: React.FC = () => {
       contentSummary: '',
       keyTerms: [],
       anomalies: [],
-      recommendations: []
+      recommendations: [],
+      metadata: {
+        pageCount: 0,
+        wordCount: 0,
+        characterCount: 0,
+        documentType: '',
+        analysisDate: '',
+        processingTime: '',
+        fileSize: '',
+        creationDate: '',
+        lastModified: ''
+      }
     });
   };
 
-const handleStartAnalysis = async () => {
-  if (!selectedDocumentId) return;
+  const handleStartAnalysis = async () => {
+    if (!selectedDocumentId) return;
 
-  setIsAnalyzing(true);
-  toast.info("AI analysis started");
+    setIsAnalyzing(true);
+    toast.info("AI analysis started");
+    const startTime = Date.now();
 
-  try {
-    const response = await fetch(`http://localhost:8500/api/ai/analyze-document/${selectedDocumentId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': 'versafe-internal-api-key-2024'
+    try {
+      const response = await fetch(`http://localhost:8500/api/ai/analyze-document/${selectedDocumentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'versafe-internal-api-key-2024'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch analysis results");
       }
-    });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch analysis results");
+      const data = await response.json();
+      const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      // Map the API response to your insights state shape
+      setInsights({
+        riskScore: data.risk_score ?? 0,
+        contentSummary: data.result ?? 'No summary available',
+        keyTerms: data.key_terms ?? [], // Try to get from API
+        anomalies: data.anomalies ?? [], // Try to get from API
+        recommendations: data.recommendations ?? [], // Try to get from API
+        metadata: {
+          pageCount: data.features?.pages ?? data.pages ?? 0,
+          wordCount: data.features?.wordCount ?? data.wordCount ?? 0,
+          characterCount: data.features?.character_count ?? data.character_count ?? 0,
+          documentType: data.features?.document_type ?? data.document_type ?? 'Unknown',
+          analysisDate: new Date().toLocaleString(),
+          processingTime: `${processingTime}s`,
+          fileSize: data.features?.file_size ?? data.file_size ?? 'Unknown',
+          creationDate: data.features?.creation_date ?? data.creation_date ?? 'Unknown',
+          lastModified: data.features?.last_modified ?? data.last_modified ?? 'Unknown'
+        }
+      });
+
+      setAnalysisComplete(true);
+      toast.success("AI analysis completed");
+      setActiveTab('insights');
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Error analyzing document");
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    const data = await response.json();
-
-    // Map the API response to your insights state shape
-    setInsights({
-      riskScore: data.risk_score ?? 0,
-      contentSummary: data.result ?? 'No summary available',
-      keyTerms: [], // API does not provide keyTerms, so empty array
-      anomalies: [], // no anomalies info, keep empty
-      recommendations: [] // no recommendations, keep empty
-    });
-
-    setAnalysisComplete(true);
-    toast.success("AI analysis completed");
-    setActiveTab('insights');
-
-  } catch (error) {
-    console.error(error);
-    toast.error("Error analyzing document");
-  } finally {
-    setIsAnalyzing(false);
-  }
-};
-
+  };
 
   const renderRiskLevel = (score: number) => {
     if (score < 30) return {
@@ -107,6 +147,32 @@ const handleStartAnalysis = async () => {
       bgColor: "bg-red-500",
       badge: <Badge className="bg-red-100 text-red-800 border-red-200">High Risk</Badge>
     };
+  };
+
+  const formatFileSize = (size: string | number) => {
+    if (typeof size === 'string' && size !== 'Unknown') return size;
+    if (typeof size === 'number') {
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let unitIndex = 0;
+      let fileSize = size;
+      
+      while (fileSize >= 1024 && unitIndex < units.length - 1) {
+        fileSize /= 1024;
+        unitIndex++;
+      }
+      
+      return `${fileSize.toFixed(1)} ${units[unitIndex]}`;
+    }
+    return 'Unknown';
+  };
+
+  const formatDate = (dateString: string) => {
+    if (dateString === 'Unknown' || !dateString) return 'Unknown';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
+    }
   };
 
   const selectedDocument = documents.find(doc => doc.id === selectedDocumentId) ?? null;
@@ -221,110 +287,248 @@ const handleStartAnalysis = async () => {
                 </CardContent>
               </Card>
             ) : analysisComplete && selectedDocument ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="flex items-center">
-                        Analysis Results
-                        {insights.anomalies.length > 0 && (
-                          <AlertTriangle className="h-5 w-5 text-yellow-500 ml-2" />
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        {selectedDocument.title}
-                      </CardDescription>
+              <div className="space-y-6">
+                {/* Analysis Header with Metadata */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <CheckCircle2 className="h-6 w-6 text-green-600 mr-2" />
+                          Analysis Complete
+                          {insights.anomalies.length > 0 && (
+                            <AlertTriangle className="h-5 w-5 text-yellow-500 ml-2" />
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          {selectedDocument.title} • {insights.metadata.analysisDate}
+                        </CardDescription>
+                      </div>
+                      {riskInfo.badge}
                     </div>
-                    {riskInfo.badge}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <div className="text-sm font-medium mb-2">Risk Assessment</div>
-                    <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${riskInfo.bgColor}`}
-                        style={{ width: `${insights.riskScore}%` }}
-                      ></div>
-                    </div>
-                    <div className="mt-1 text-xs text-right text-muted-foreground">
-                      Score: {insights.riskScore}/100
-                    </div>
-                  </div>
-
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="insights">Insights</TabsTrigger>
-                      <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
-                      <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="insights">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium mb-2">Content Summary</h4>
-                          <p className="text-sm">{insights.contentSummary}</p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">Key Terms</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {insights.keyTerms.map((term: string, index: number) => (
-                              <Badge
-                                key={index}
-                                variant="outline"
-                                className="bg-blue-50 text-blue-800 border-blue-200"
-                              >
-                                {term}
-                              </Badge>
-                            ))}
-                          </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-blue-800">Risk Score</div>
+                        <div className={`text-xl font-bold ${riskInfo.color}`}>{insights.riskScore}/100</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <BookOpen className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-green-800">Pages</div>
+                        <div className="text-xl font-bold text-green-700">{insights.metadata.pageCount || 'N/A'}</div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 rounded-lg">
+                        <Hash className="h-5 w-5 text-purple-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-purple-800">Words</div>
+                        <div className="text-xl font-bold text-purple-700">
+                          {insights.metadata.wordCount ? insights.metadata.wordCount.toLocaleString() : 'N/A'}
                         </div>
                       </div>
-                    </TabsContent>
-
-                    <TabsContent value="anomalies">
-                      <div className="space-y-4">
-                        {insights.anomalies.length > 0 ? (
-                          insights.anomalies.map((anomaly: any, index: number) => (
-                            <Alert
-                              key={index}
-                              variant={anomaly.severity === 'high' ? 'destructive' : 'default'}
-                            >
-                              <AlertTriangle className="h-4 w-4" />
-                              <AlertTitle>{anomaly.type}</AlertTitle>
-                              <AlertDescription>
-                                {anomaly.description}
-                              </AlertDescription>
-                            </Alert>
-                          ))
-                        ) : (
-                          <div className="flex items-center p-4 bg-green-50 rounded-md">
-                            <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
-                            <span>No anomalies detected in this document</span>
-                          </div>
-                        )}
+                      <div className="text-center p-3 bg-orange-50 rounded-lg">
+                        <Clock className="h-5 w-5 text-orange-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-orange-800">Processing</div>
+                        <div className="text-xl font-bold text-orange-700">{insights.metadata.processingTime}</div>
                       </div>
-                    </TabsContent>
+                    </div>
 
-                    <TabsContent value="recommendations">
-                      <div className="space-y-3">
-                        {insights.recommendations.map((rec: string, index: number) => (
-                          <div
-                            key={index}
-                            className="p-3 border-l-4 border-blue-500 bg-blue-50 rounded"
-                          >
-                            <div className="flex">
-                              <Info className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
-                              <span>{rec}</span>
+                    {/* Risk Assessment Bar */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-sm font-medium mb-2">
+                        <span>Risk Assessment</span>
+                        <span>{riskInfo.label}</span>
+                      </div>
+                      <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${riskInfo.bgColor}`}
+                          style={{ width: `${insights.riskScore}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Analysis Results */}
+                <Card>
+                  <CardContent className="p-6">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                      <TabsList className="mb-6">
+                        <TabsTrigger value="insights">Insights</TabsTrigger>
+                        <TabsTrigger value="metadata">Metadata</TabsTrigger>
+                        <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+                        <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="insights">
+                        <div className="space-y-6">
+                          <div>
+                            <h4 className="font-semibold mb-3 text-lg">Content Summary</h4>
+                            <p className="text-gray-700 leading-relaxed">{insights.contentSummary}</p>
+                          </div>
+
+                          {insights.keyTerms.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold mb-3 text-lg">Key Terms</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {insights.keyTerms.map((term: string, index: number) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="bg-blue-50 text-blue-800 border-blue-200 px-3 py-1"
+                                  >
+                                    {term}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="metadata">
+                        <div className="space-y-6">
+                          <h4 className="font-semibold text-lg mb-4">Document Metadata</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <FileType className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Document Type</div>
+                                  <div className="font-semibold">{insights.metadata.documentType || 'Unknown'}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <BookOpen className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Page Count</div>
+                                  <div className="font-semibold">{insights.metadata.pageCount || 'N/A'}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <Hash className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Word Count</div>
+                                  <div className="font-semibold">
+                                    {insights.metadata.wordCount ? insights.metadata.wordCount.toLocaleString() : 'N/A'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <FileText className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Character Count</div>
+                                  <div className="font-semibold">
+                                    {insights.metadata.characterCount ? insights.metadata.characterCount.toLocaleString() : 'N/A'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <FileText className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">File Size</div>
+                                  <div className="font-semibold">{formatFileSize(insights.metadata.fileSize)}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <Calendar className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Created</div>
+                                  <div className="font-semibold">{formatDate(insights.metadata.creationDate)}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <Calendar className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Last Modified</div>
+                                  <div className="font-semibold">{formatDate(insights.metadata.lastModified)}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+                                <Clock className="h-5 w-5 text-gray-600 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-600">Analysis Time</div>
+                                  <div className="font-semibold">{insights.metadata.processingTime}</div>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="anomalies">
+                        <div className="space-y-4">
+                          {insights.anomalies.length > 0 ? (
+                            insights.anomalies.map((anomaly: any, index: number) => (
+                              <Alert
+                                key={index}
+                                variant={anomaly.severity === 'high' ? 'destructive' : 'default'}
+                                className="border-l-4"
+                              >
+                                <AlertTriangle className="h-5 w-5" />
+                                <AlertTitle className="text-base font-semibold">
+                                  {anomaly.type}
+                                  <Badge
+                                    variant={anomaly.severity === 'high' ? 'destructive' : 'secondary'}
+                                    className="ml-2 text-xs"
+                                  >
+                                    {anomaly.severity}
+                                  </Badge>
+                                </AlertTitle>
+                                <AlertDescription className="mt-2">
+                                  {anomaly.description}
+                                </AlertDescription>
+                              </Alert>
+                            ))
+                          ) : (
+                            <div className="flex items-center p-6 bg-green-50 rounded-lg border border-green-200">
+                              <CheckCircle2 className="h-6 w-6 text-green-600 mr-3" />
+                              <div>
+                                <div className="font-semibold text-green-800">No Anomalies Detected</div>
+                                <div className="text-green-700">This document appears to be clean and well-formatted.</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="recommendations">
+                        <div className="space-y-4">
+                          {insights.recommendations.length > 0 ? (
+                            insights.recommendations.map((rec: string, index: number) => (
+                              <div
+                                key={index}
+                                className="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-lg"
+                              >
+                                <div className="flex items-start">
+                                  <Info className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+                                  <div>
+                                    <div className="font-medium text-blue-900 mb-1">
+                                      Recommendation {index + 1}
+                                    </div>
+                                    <div className="text-blue-800">{rec}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center p-6 bg-gray-50 rounded-lg border border-gray-200">
+                              <Info className="h-6 w-6 text-gray-500 mr-3" />
+                              <div>
+                                <div className="font-semibold text-gray-700">No Specific Recommendations</div>
+                                <div className="text-gray-600">The document appears to meet standard requirements.</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               <div className="h-full flex items-center justify-center border rounded-lg bg-gray-50">
                 <div className="text-center p-8">
@@ -344,8 +548,6 @@ const handleStartAnalysis = async () => {
             )}
           </div>
         </div>
-
-       
       </div>
     </AppLayout>
   );
