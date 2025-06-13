@@ -55,9 +55,11 @@ async function extractDocumentMetadata(filePath, mimeType) {
     }
 
     return {
-      ...baseMetadata,
-      ...specificMetadata,
-      extractedData,
+     extractedData: {
+    ...baseMetadata,
+    ...specificMetadata,
+    ...extractedData
+     },
       processingTimestamp: new Date().toISOString()
     };
 

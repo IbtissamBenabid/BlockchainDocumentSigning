@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -8,15 +7,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useDocuments } from '@/contexts/DocumentContext';
-import { 
-  Brain, 
-  ChevronLeft, 
-  FileText, 
-  Info,
+import {
+  Brain,
+  FileText,
+  FileSearch,
   AlertTriangle,
   CheckCircle2,
-  BarChart3,
-  FileSearch,
+  Info,
   CircleDot
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,8 +24,7 @@ const AIAnalysis: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('insights');
-  
-  // Mock analysis results
+
   const [insights, setInsights] = useState<any>({
     riskScore: 0,
     contentSummary: '',
@@ -49,73 +45,77 @@ const AIAnalysis: React.FC = () => {
     });
   };
 
-  const handleStartAnalysis = () => {
-    if (!selectedDocumentId) return;
-    
-    setIsAnalyzing(true);
-    toast.info("AI analysis started");
-    
-    // Simulate AI analysis process
-    setTimeout(() => {
-      const selectedDocument = documents.find(doc => doc.id === selectedDocumentId);
-      
-      // Mock insights based on document properties
-      const mockInsights = {
-        riskScore: Math.floor(Math.random() * 100),
-        contentSummary: `This appears to be a ${selectedDocument?.title.toLowerCase()} document that contains ${Math.floor(Math.random() * 5) + 1} pages of content related to blockchain authentication and digital signatures.`,
-        keyTerms: [
-          'Digital Signature',
-          'Blockchain',
-          'Authentication',
-          'Verification',
-          'Smart Contract',
-          'Legal Compliance',
-          'Data Protection'
-        ],
-        anomalies: Math.random() > 0.7 ? [
-          {
-            type: 'Potential Tampering',
-            description: 'Minor inconsistencies detected in document metadata',
-            severity: 'medium'
-          }
-        ] : [],
-        recommendations: [
-          'Add multi-factor authentication for document signatories',
-          'Enable blockchain timestamp verification',
-          'Consider upgrading security level to High for this document type'
-        ]
-      };
-      
-      setInsights(mockInsights);
-      setIsAnalyzing(false);
-      setAnalysisComplete(true);
-      toast.success("AI analysis completed");
-    }, 3000);
-  };
+const handleStartAnalysis = async () => {
+  if (!selectedDocumentId) return;
+
+  setIsAnalyzing(true);
+  toast.info("AI analysis started");
+
+  try {
+    const response = await fetch(`http://localhost:8500/api/ai/analyze-document/${selectedDocumentId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'versafe-internal-api-key-2024'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch analysis results");
+    }
+
+    const data = await response.json();
+
+    // Map the API response to your insights state shape
+    setInsights({
+      riskScore: data.risk_score ?? 0,
+      contentSummary: data.result ?? 'No summary available',
+      keyTerms: [], // API does not provide keyTerms, so empty array
+      anomalies: [], // no anomalies info, keep empty
+      recommendations: [] // no recommendations, keep empty
+    });
+
+    setAnalysisComplete(true);
+    toast.success("AI analysis completed");
+    setActiveTab('insights');
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Error analyzing document");
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+
 
   const renderRiskLevel = (score: number) => {
-    if (score < 30) return { 
-      label: "Low Risk", 
+    if (score < 30) return {
+      label: "Low Risk",
       color: "text-green-600",
       bgColor: "bg-green-500",
       badge: <Badge className="bg-green-100 text-green-800 border-green-200">Low Risk</Badge>
     };
-    if (score < 70) return { 
-      label: "Medium Risk", 
+    if (score < 70) return {
+      label: "Medium Risk",
       color: "text-yellow-600",
       bgColor: "bg-yellow-500",
       badge: <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Medium Risk</Badge>
     };
-    return { 
-      label: "High Risk", 
+    return {
+      label: "High Risk",
       color: "text-red-600",
       bgColor: "bg-red-500",
       badge: <Badge className="bg-red-100 text-red-800 border-red-200">High Risk</Badge>
     };
   };
 
-  const selectedDocument = documents.find(doc => doc.id === selectedDocumentId);
+  const selectedDocument = documents.find(doc => doc.id === selectedDocumentId) ?? null;
   const riskInfo = renderRiskLevel(insights.riskScore);
+
+  // Debug logs (remove or comment out in production)
+  console.log('Selected Document:', selectedDocument);
+  console.log('Insights:', insights);
+  console.log('Active Tab:', activeTab);
 
   return (
     <AppLayout>
@@ -140,8 +140,8 @@ const AIAnalysis: React.FC = () => {
                     </div>
                   ) : (
                     documents.map(doc => (
-                      <div 
-                        key={doc.id} 
+                      <div
+                        key={doc.id}
                         className={`p-3 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors ${selectedDocumentId === doc.id ? 'border-primary bg-primary/5' : ''}`}
                         onClick={() => handleSelectDocument(doc.id)}
                       >
@@ -157,8 +157,8 @@ const AIAnalysis: React.FC = () => {
                   )}
                 </div>
                 {selectedDocumentId && !analysisComplete && (
-                  <Button 
-                    className="w-full mt-4" 
+                  <Button
+                    className="w-full mt-4"
                     onClick={handleStartAnalysis}
                     disabled={isAnalyzing}
                   >
@@ -197,7 +197,7 @@ const AIAnalysis: React.FC = () => {
                       <p className="text-muted-foreground mb-6">
                         Examining document contents and metadata...
                       </p>
-                      <Progress value={Math.floor(Math.random() * 100)} className="w-3/4 mx-auto" />
+                      <Progress value={50} className="w-3/4 mx-auto" />
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center text-sm">
@@ -220,7 +220,7 @@ const AIAnalysis: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-            ) : analysisComplete ? (
+            ) : analysisComplete && selectedDocument ? (
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -232,7 +232,7 @@ const AIAnalysis: React.FC = () => {
                         )}
                       </CardTitle>
                       <CardDescription>
-                        {selectedDocument?.title}
+                        {selectedDocument.title}
                       </CardDescription>
                     </div>
                     {riskInfo.badge}
@@ -242,7 +242,7 @@ const AIAnalysis: React.FC = () => {
                   <div className="mb-6">
                     <div className="text-sm font-medium mb-2">Risk Assessment</div>
                     <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full ${riskInfo.bgColor}`}
                         style={{ width: `${insights.riskScore}%` }}
                       ></div>
@@ -252,27 +252,27 @@ const AIAnalysis: React.FC = () => {
                     </div>
                   </div>
 
-                  <Tabs defaultValue="insights" value={activeTab} onValueChange={setActiveTab}>
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="mb-4">
                       <TabsTrigger value="insights">Insights</TabsTrigger>
                       <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
                       <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
                     </TabsList>
-                    
+
                     <TabsContent value="insights">
                       <div className="space-y-4">
                         <div>
                           <h4 className="font-medium mb-2">Content Summary</h4>
                           <p className="text-sm">{insights.contentSummary}</p>
                         </div>
-                        
+
                         <div>
                           <h4 className="font-medium mb-2">Key Terms</h4>
                           <div className="flex flex-wrap gap-2">
                             {insights.keyTerms.map((term: string, index: number) => (
-                              <Badge 
-                                key={index} 
-                                variant="outline" 
+                              <Badge
+                                key={index}
+                                variant="outline"
                                 className="bg-blue-50 text-blue-800 border-blue-200"
                               >
                                 {term}
@@ -280,29 +280,15 @@ const AIAnalysis: React.FC = () => {
                             ))}
                           </div>
                         </div>
-                        
-                        <div>
-                          <h4 className="font-medium mb-2">Smart Document Stats</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-gray-50 rounded">
-                              <div className="text-xs text-muted-foreground">Compliance Score</div>
-                              <div className="font-medium">{70 + Math.floor(Math.random() * 30)}%</div>
-                            </div>
-                            <div className="p-3 bg-gray-50 rounded">
-                              <div className="text-xs text-muted-foreground">Complexity</div>
-                              <div className="font-medium">Medium</div>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     </TabsContent>
-                    
+
                     <TabsContent value="anomalies">
                       <div className="space-y-4">
                         {insights.anomalies.length > 0 ? (
                           insights.anomalies.map((anomaly: any, index: number) => (
-                            <Alert 
-                              key={index} 
+                            <Alert
+                              key={index}
                               variant={anomaly.severity === 'high' ? 'destructive' : 'default'}
                             >
                               <AlertTriangle className="h-4 w-4" />
@@ -320,12 +306,12 @@ const AIAnalysis: React.FC = () => {
                         )}
                       </div>
                     </TabsContent>
-                    
+
                     <TabsContent value="recommendations">
                       <div className="space-y-3">
                         {insights.recommendations.map((rec: string, index: number) => (
-                          <div 
-                            key={index} 
+                          <div
+                            key={index}
                             className="p-3 border-l-4 border-blue-500 bg-blue-50 rounded"
                           >
                             <div className="flex">
@@ -347,7 +333,10 @@ const AIAnalysis: React.FC = () => {
                   <p className="text-muted-foreground mb-4">
                     Click "Start Analysis" to begin AI-powered document examination
                   </p>
-                  <Button onClick={handleStartAnalysis}>
+                  <Button
+                    onClick={handleStartAnalysis}
+                    disabled={isAnalyzing || !selectedDocumentId}
+                  >
                     Start Analysis
                   </Button>
                 </div>
@@ -355,6 +344,8 @@ const AIAnalysis: React.FC = () => {
             )}
           </div>
         </div>
+
+       
       </div>
     </AppLayout>
   );
